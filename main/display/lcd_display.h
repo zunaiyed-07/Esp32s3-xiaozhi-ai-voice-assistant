@@ -3,6 +3,7 @@
 
 #include "lvgl_display.h"
 #include "gif/lvgl_gif.h"
+#include "mochi_face_controller.h"
 
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
@@ -30,11 +31,13 @@ protected:
     lv_obj_t* emoji_label_ = nullptr;
     lv_obj_t* emoji_image_ = nullptr;
     std::unique_ptr<LvglGif> gif_controller_ = nullptr;
+    std::unique_ptr<MochiFaceController> mochi_face_controller_ = nullptr;
     lv_obj_t* emoji_box_ = nullptr;
     lv_obj_t* chat_message_label_ = nullptr;
     esp_timer_handle_t preview_timer_ = nullptr;
     std::unique_ptr<LvglImage> preview_image_cached_ = nullptr;
     bool hide_subtitle_ = false;  // Control whether to hide chat messages/subtitles
+    bool face_animation_mode_ = false;
 
     void InitializeLcdThemes();
     void SetupUI();
@@ -48,6 +51,10 @@ protected:
 public:
     ~LcdDisplay();
     virtual void SetEmotion(const char* emotion) override;
+    virtual void SetFaceState(FaceState state) override;
+    virtual void SetFaceAnimationMode(bool enabled) override;
+    virtual bool IsFaceAnimationMode() const override;
+    virtual void UpdateFaceAnimation(uint32_t elapsed_ms) override;
     virtual void SetChatMessage(const char* role, const char* content) override;
     virtual void ClearChatMessages() override;
     virtual void SetPreviewImage(std::unique_ptr<LvglImage> image) override;
@@ -57,6 +64,9 @@ public:
     
     // Set whether to hide chat messages/subtitles
     void SetHideSubtitle(bool hide);
+
+protected:
+    void InitializeMochiFace();
 };
 
 // SPI LCD display

@@ -2,6 +2,7 @@
 #define OLED_DISPLAY_H
 
 #include "lvgl_display.h"
+#include "lvgl_display/mochi_face_controller.h"
 
 #include <esp_lcd_panel_io.h>
 #include <esp_lcd_panel_ops.h>
@@ -33,6 +34,8 @@ private:
     lv_obj_t* left_eye_ = nullptr;
     lv_obj_t* right_eye_ = nullptr;
     lv_obj_t* mouth_ = nullptr;
+    std::unique_ptr<MochiFaceController> mochi_face_controller_ = nullptr;
+    bool face_animation_mode_ = false;
 
     int blink_phase_ = 0;
     int idle_move_offset_x_ = 0;
@@ -44,6 +47,7 @@ private:
 
     void SetupUI_128x64();
     void SetupUI_128x32();
+    void InitializeMochiFace();
 
 public:
     OledDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel, int width,
@@ -54,6 +58,9 @@ public:
     virtual void SetEmotion(const char* emotion) override;
     virtual void SetTheme(Theme* theme) override;
     void SetFaceState(FaceState state) override;
+    void SetFaceAnimationMode(bool enabled) override;
+    bool IsFaceAnimationMode() const override;
+    void UpdateFaceAnimation(uint32_t elapsed_ms) override;
 };
 
 #endif  // OLED_DISPLAY_H

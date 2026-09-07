@@ -45,6 +45,10 @@ public:
     virtual void SetPowerSaveMode(bool on);
 
     virtual void SetFaceState(FaceState state) {}
+    virtual void SetFaceAnimationMode(bool enabled) { (void)enabled; }
+    virtual bool IsFaceAnimationMode() const { return false; }
+    virtual void UpdateFaceAnimation(uint32_t elapsed_ms) { (void)elapsed_ms; }
+    virtual void CycleClockStyle() {}
 
     inline int width() const { return width_; }
     inline int height() const { return height_; }

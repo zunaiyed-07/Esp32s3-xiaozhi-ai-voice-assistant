@@ -171,6 +171,7 @@ SpiLcdDisplay::SpiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
     }
 
     SetupUI();
+    InitializeMochiFace();
 }
 
 
@@ -234,6 +235,7 @@ RgbLcdDisplay::RgbLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_h
     }
 
     SetupUI();
+    InitializeMochiFace();
 }
 
 MipiLcdDisplay::MipiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_t panel,
@@ -287,9 +289,27 @@ MipiLcdDisplay::MipiLcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel
     }
 
     SetupUI();
+    InitializeMochiFace();
+}
+
+void LcdDisplay::InitializeMochiFace() {
+    DisplayLockGuard lock(this);
+    mochi_face_controller_ = std::make_unique<MochiFaceController>(lv_screen_active());
+    mochi_face_controller_->RegisterChromeObject(container_);
+    mochi_face_controller_->RegisterChromeObject(top_bar_);
+    mochi_face_controller_->RegisterChromeObject(status_bar_);
+    mochi_face_controller_->RegisterChromeObject(content_);
+    mochi_face_controller_->RegisterChromeObject(side_bar_);
+    mochi_face_controller_->RegisterChromeObject(bottom_bar_);
+    mochi_face_controller_->RegisterChromeObject(emoji_label_);
+    mochi_face_controller_->RegisterChromeObject(emoji_image_);
+    mochi_face_controller_->RegisterChromeObject(emoji_box_);
+    mochi_face_controller_->RegisterChromeObject(preview_image_);
+    mochi_face_controller_->RegisterChromeObject(low_battery_popup_);
 }
 
 LcdDisplay::~LcdDisplay() {
+    mochi_face_controller_.reset();
     SetPreviewImage(nullptr);
     
     // Clean up GIF controller
@@ -1008,6 +1028,11 @@ void LcdDisplay::ClearChatMessages() {
 #endif
 
 void LcdDisplay::SetEmotion(const char* emotion) {
+    if (mochi_face_controller_ != nullptr) {
+        DisplayLockGuard lock(this);
+        mochi_face_controller_->SetExpression(emotion);
+    }
+
     // Stop any running GIF animation
     if (gif_controller_) {
         DisplayLockGuard lock(this);
@@ -1076,6 +1101,44 @@ void LcdDisplay::SetEmotion(const char* emotion) {
         lv_obj_add_flag(emoji_label_, LV_OBJ_FLAG_HIDDEN);
     }
 #endif
+}
+
+void LcdDisplay::SetFaceState(FaceState state) {
+    if (mochi_face_controller_ == nullptr || !face_animation_mode_) return;
+    switch (state) {
+        case FaceState::Listening:
+            mochi_face_controller_->SetExpression(MochiFaceController::Expression::LISTENING);
+            break;
+        case FaceState::Speaking:
+            mochi_face_controller_->SetExpression(MochiFaceController::Expression::SPEAKING);
+            break;
+        case FaceState::Idle:
+        default:
+            mochi_face_controller_->SetExpression(MochiFaceController::Expression::NORMAL);
+            break;
+    }
+}
+
+void LcdDisplay::SetFaceAnimationMode(bool enabled) {
+    if (mochi_face_controller_ == nullptr || enabled == face_animation_mode_) return;
+    DisplayLockGuard lock(this);
+    face_animation_mode_ = enabled;
+    if (enabled) {
+        mochi_face_controller_->SetExpression(MochiFaceController::Expression::NORMAL);
+        mochi_face_controller_->EnterFullscreenFace();
+    } else {
+        mochi_face_controller_->ExitFullscreenFace();
+    }
+}
+
+bool LcdDisplay::IsFaceAnimationMode() const {
+    return face_animation_mode_;
+}
+
+void LcdDisplay::UpdateFaceAnimation(uint32_t elapsed_ms) {
+    if (mochi_face_controller_ == nullptr || !face_animation_mode_) return;
+    DisplayLockGuard lock(this);
+    mochi_face_controller_->Update(elapsed_ms);
 }
 
 void LcdDisplay::SetTheme(Theme* theme) {

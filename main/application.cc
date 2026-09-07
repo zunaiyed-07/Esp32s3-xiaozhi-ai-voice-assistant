@@ -15,11 +15,19 @@
 #include <arpa/inet.h>
 #include <cJSON.h>
 #include <font_awesome.h>
+#include <algorithm>
+#include <cctype>
 #include <cstring>
 
 #include "oled_display.h"
 
 #define TAG "Application"
+
+namespace {
+bool ContainsPhrase(const std::string& text, const char* phrase) {
+    return text.find(phrase) != std::string::npos;
+}
+}
 
 Application::Application() {
     event_group_ = xEventGroupCreate();
@@ -242,6 +250,9 @@ void Application::Run() {
 
         if (bits & MAIN_EVENT_CLOCK_TICK) {
             clock_ticks_++;
+            if (local_display_command_timeout_ > 0 && --local_display_command_timeout_ == 0) {
+                local_display_command_active_ = false;
+            }
             auto display = Board::GetInstance().GetDisplay();
             display->UpdateStatusBar();
 
@@ -496,7 +507,7 @@ void Application::InitializeProtocol() {
     });
 
     protocol_->OnIncomingAudio([this](std::unique_ptr<AudioStreamPacket> packet) {
-        if (GetDeviceState() == kDeviceStateSpeaking) {
+        if (GetDeviceState() == kDeviceStateSpeaking && !local_display_command_active_) {
             audio_service_.PushPacketToDecodeQueue(std::move(packet));
         }
     });
@@ -527,11 +538,20 @@ void Application::InitializeProtocol() {
             auto state = cJSON_GetObjectItem(root, "state");
             if (strcmp(state->valuestring, "start") == 0) {
                 Schedule([this]() {
+                    if (local_display_command_active_) {
+                        aborted_ = true;
+                        if (protocol_) protocol_->SendAbortSpeaking(kAbortReasonWakeWordDetected);
+                        return;
+                    }
                     aborted_ = false;
                     SetDeviceState(kDeviceStateSpeaking);
                 });
             } else if (strcmp(state->valuestring, "stop") == 0) {
                 Schedule([this]() {
+                    if (local_display_command_active_) {
+                        local_display_command_active_ = false;
+                        return;
+                    }
                     if (GetDeviceState() == kDeviceStateSpeaking) {
                         if (listening_mode_ == kListeningModeManualStop) {
                             SetDeviceState(kDeviceStateIdle);
@@ -544,7 +564,8 @@ void Application::InitializeProtocol() {
                 auto text = cJSON_GetObjectItem(root, "text");
                 if (cJSON_IsString(text)) {
                     ESP_LOGI(TAG, "<< %s", text->valuestring);
-                    Schedule([display, message = std::string(text->valuestring)]() {
+                    Schedule([this, display, message = std::string(text->valuestring)]() {
+                        if (local_display_command_active_) return;
                         display->SetChatMessage("assistant", message.c_str());
                     });
                 }
@@ -553,8 +574,17 @@ void Application::InitializeProtocol() {
             auto text = cJSON_GetObjectItem(root, "text");
             if (cJSON_IsString(text)) {
                 ESP_LOGI(TAG, ">> %s", text->valuestring);
-                Schedule([display, message = std::string(text->valuestring)]() {
-                    display->SetChatMessage("user", message.c_str());
+                Schedule([this, display, message = std::string(text->valuestring)]() {
+                    auto command = message;
+                    std::transform(command.begin(), command.end(), command.begin(), [](unsigned char character) {
+                        return static_cast<char>(std::tolower(character));
+                    });
+                    if (HandleDisplayCommand(command, display)) {
+                        local_display_command_active_ = true;
+                        local_display_command_timeout_ = 8;
+                    } else {
+                        display->SetChatMessage("user", message.c_str());
+                    }
                 });
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
@@ -908,6 +938,42 @@ void Application::AbortSpeaking(AbortReason reason) {
 void Application::SetListeningMode(ListeningMode mode) {
     listening_mode_ = mode;
     SetDeviceState(kDeviceStateListening);
+}
+
+bool Application::HandleDisplayCommand(const std::string& text, Display* display) {
+    if (display == nullptr) return false;
+
+    if (ContainsPhrase(text, "exit face animation") || ContainsPhrase(text, "hide face") ||
+        ContainsPhrase(text, "show normal screen") || ContainsPhrase(text, "normal mode")) {
+        display->SetFaceAnimationMode(false);
+        return true;
+    }
+
+    if (ContainsPhrase(text, "show face animation") || ContainsPhrase(text, "show only face animation") ||
+        ContainsPhrase(text, "face animation only") || ContainsPhrase(text, "show face only") ||
+        ContainsPhrase(text, "face only mode") || ContainsPhrase(text, "switch to face only mode") ||
+        ContainsPhrase(text, "face animation") ||
+        ContainsPhrase(text, "show me your face")) {
+        display->SetFaceAnimationMode(true);
+        return true;
+    }
+
+    if (ContainsPhrase(text, "change the clock face") || ContainsPhrase(text, "change clock face") ||
+        ContainsPhrase(text, "change clock style") || ContainsPhrase(text, "next clock")) {
+        display->CycleClockStyle();
+        return true;
+    }
+
+    if (ContainsPhrase(text, "be happy") || ContainsPhrase(text, "show happy face")) display->SetEmotion("happy");
+    else if (ContainsPhrase(text, "be angry") || ContainsPhrase(text, "show angry face")) display->SetEmotion("angry");
+    else if (ContainsPhrase(text, "cry") || ContainsPhrase(text, "show crying face")) display->SetEmotion("crying");
+    else if (ContainsPhrase(text, "be silly")) display->SetEmotion("silly");
+    else if (ContainsPhrase(text, "surprise me")) display->SetEmotion("surprised");
+    else if (ContainsPhrase(text, "sleep")) display->SetEmotion("sleepy");
+    else if (ContainsPhrase(text, "show love")) display->SetEmotion("love");
+    else if (ContainsPhrase(text, "what are you thinking")) display->SetEmotion("thinking");
+    else return false;
+    return true;
 }
 
 void Application::Reboot() {

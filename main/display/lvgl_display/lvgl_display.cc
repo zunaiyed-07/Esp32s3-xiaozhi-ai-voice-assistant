@@ -3,6 +3,8 @@
 #include <string>
 #include <cstdlib>
 #include <cstring>
+#include <cstdio>
+#include <algorithm>
 #include <font_awesome.h>
 
 #include "lvgl_display.h"
@@ -16,6 +18,10 @@
 #define TAG "Display"
 
 LvglDisplay::LvglDisplay() {
+    Settings settings("display", false);
+    const int32_t stored_clock_style = settings.GetInt("clock_style", 0);
+    clock_style_ = static_cast<int>(std::max<int32_t>(0, std::min<int32_t>(3, stored_clock_style)));
+
     // Notification timer
     esp_timer_create_args_t notification_timer_args = {
         .callback = [](void *arg) {
@@ -38,6 +44,17 @@ LvglDisplay::LvglDisplay() {
     } else {
         ESP_ERROR_CHECK(ret);
     }
+}
+
+void LvglDisplay::CycleClockStyle() {
+    clock_style_ = (clock_style_ + 1) % 4;
+    Settings settings("display", true);
+    settings.SetInt("clock_style", clock_style_);
+    UpdateStatusBar(true);
+}
+
+void LvglDisplay::UpdateFaceAnimation(uint32_t elapsed_ms) {
+    (void)elapsed_ms;
 }
 
 LvglDisplay::~LvglDisplay() {
@@ -128,8 +145,9 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
             struct tm* tm = localtime(&now);
             // Check if the we have already set the time
             if (tm->tm_year >= 2025 - 1900) {
-                char time_str[16];
-                strftime(time_str, sizeof(time_str), "%H:%M", tm);
+                char time_str[24];
+                const char* formats[] = {"%I:%M %p", "%I.%M %p", "%I:%M:%S %p", "[%I:%M %p]"};
+                strftime(time_str, sizeof(time_str), formats[clock_style_], tm);
                 SetStatus(time_str);
             } else {
                 ESP_LOGW(TAG, "System time is not set, tm_year: %d", tm->tm_year);

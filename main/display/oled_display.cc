@@ -90,6 +90,8 @@ OledDisplay::OledDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
         SetupUI_128x32();
     }
 
+    InitializeMochiFace();
+
     lv_timer_create(
         [](lv_timer_t* t) {
             auto self = static_cast<OledDisplay*>(lv_timer_get_user_data(t));
@@ -99,6 +101,7 @@ OledDisplay::OledDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
 }
 
 OledDisplay::~OledDisplay() {
+    mochi_face_controller_.reset();
     if (content_ != nullptr) {
         lv_obj_del(content_);
     }
@@ -142,7 +145,56 @@ bool OledDisplay::Lock(int timeout_ms) { return lvgl_port_lock(timeout_ms); }
 
 void OledDisplay::Unlock() { lvgl_port_unlock(); }
 
-void OledDisplay::SetFaceState(FaceState state) { face_state_ = state; }
+void OledDisplay::SetFaceState(FaceState state) {
+    face_state_ = state;
+    if (mochi_face_controller_ == nullptr || !face_animation_mode_) return;
+    switch (state) {
+        case FaceState::Listening:
+            mochi_face_controller_->SetExpression(MochiFaceController::Expression::LISTENING);
+            break;
+        case FaceState::Speaking:
+            mochi_face_controller_->SetExpression(MochiFaceController::Expression::SPEAKING);
+            break;
+        case FaceState::Idle:
+        default:
+            mochi_face_controller_->SetExpression(MochiFaceController::Expression::NORMAL);
+            break;
+    }
+}
+
+void OledDisplay::InitializeMochiFace() {
+    DisplayLockGuard lock(this);
+    mochi_face_controller_ = std::make_unique<MochiFaceController>(lv_screen_active());
+    mochi_face_controller_->RegisterChromeObject(container_);
+    mochi_face_controller_->RegisterChromeObject(top_bar_);
+    mochi_face_controller_->RegisterChromeObject(status_bar_);
+    mochi_face_controller_->RegisterChromeObject(content_);
+    mochi_face_controller_->RegisterChromeObject(side_bar_);
+    mochi_face_controller_->RegisterChromeObject(face_container_);
+    mochi_face_controller_->RegisterChromeObject(chat_message_label_);
+}
+
+void OledDisplay::SetFaceAnimationMode(bool enabled) {
+    if (mochi_face_controller_ == nullptr || enabled == face_animation_mode_) return;
+    DisplayLockGuard lock(this);
+    face_animation_mode_ = enabled;
+    if (enabled) {
+        mochi_face_controller_->SetExpression(MochiFaceController::Expression::NORMAL);
+        mochi_face_controller_->EnterFullscreenFace();
+    } else {
+        mochi_face_controller_->ExitFullscreenFace();
+    }
+}
+
+bool OledDisplay::IsFaceAnimationMode() const {
+    return face_animation_mode_;
+}
+
+void OledDisplay::UpdateFaceAnimation(uint32_t elapsed_ms) {
+    if (mochi_face_controller_ == nullptr || !face_animation_mode_) return;
+    DisplayLockGuard lock(this);
+    mochi_face_controller_->Update(elapsed_ms);
+}
 
 void OledDisplay::SetChatMessage(const char* role, const char* content) {
     /* DisplayLockGuard lock(this);
@@ -246,6 +298,7 @@ void OledDisplay::SpeakingBehavior(int eye_height) {
 }
 
 void OledDisplay::UpdateFace() {
+    if (face_animation_mode_) return;
     DisplayLockGuard lock(this);
 
     // --- Random blink trigger ---
@@ -547,6 +600,11 @@ void OledDisplay::SetupUI_128x32() {
 }
 
 void OledDisplay::SetEmotion(const char* emotion) {
+    if (mochi_face_controller_ != nullptr) {
+        DisplayLockGuard lock(this);
+        mochi_face_controller_->SetExpression(emotion);
+    }
+
     /* const char* utf8 = font_awesome_get_utf8(emotion);
     DisplayLockGuard lock(this);
     if (emotion_label_ == nullptr) {
