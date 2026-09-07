@@ -20,8 +20,7 @@ MochiFaceController* MochiFaceController::active_controller_ = nullptr;
 MochiFaceController::MochiFaceController(lv_obj_t* parent) {
     root_ = lv_obj_create(parent != nullptr ? parent : lv_screen_active());
     lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
-    lv_obj_set_style_bg_color(root_, lv_color_white(), 0);
-    lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
+    lv_obj_set_style_bg_opa(root_, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(root_, 0, 0);
     lv_obj_set_style_pad_all(root_, 0, 0);
     lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
@@ -42,8 +41,6 @@ MochiFaceController::~MochiFaceController() {
 void MochiFaceController::CreateFaceObjects() {
     left_eye_ = lv_obj_create(root_);
     right_eye_ = lv_obj_create(root_);
-    left_pupil_ = lv_obj_create(root_);
-    right_pupil_ = lv_obj_create(root_);
     left_arc_ = lv_arc_create(root_);
     right_arc_ = lv_arc_create(root_);
     left_brow_ = lv_line_create(root_);
@@ -57,11 +54,6 @@ void MochiFaceController::CreateFaceObjects() {
         lv_obj_set_style_bg_color(object, kFaceColor, 0);
         lv_obj_set_style_border_width(object, 0, 0);
         lv_obj_set_style_radius(object, LV_RADIUS_CIRCLE, 0);
-    }
-    for (lv_obj_t* pupil : {left_pupil_, right_pupil_}) {
-        lv_obj_set_style_bg_color(pupil, lv_color_white(), 0);
-        lv_obj_set_style_border_width(pupil, 0, 0);
-        lv_obj_set_style_radius(pupil, LV_RADIUS_CIRCLE, 0);
     }
     for (lv_obj_t* arc : {left_arc_, right_arc_}) {
         lv_obj_set_style_arc_color(arc, kFaceColor, LV_PART_MAIN);
@@ -91,7 +83,6 @@ void MochiFaceController::SetExpression(const char* expression, uint32_t transit
 }
 
 void MochiFaceController::Update(uint32_t elapsed_ms) {
-    animation_ms_ += elapsed_ms;
     if (current_expression_ != target_expression_) {
         transition_elapsed_ms_ = std::min(transition_elapsed_ms_ + elapsed_ms, transition_duration_ms_);
         if (transition_elapsed_ms_ == transition_duration_ms_) current_expression_ = target_expression_;
@@ -134,7 +125,6 @@ void MochiFaceController::Render() {
     const bool thinking = target_expression_ == Expression::THINKING || target_expression_ == Expression::CONFUSED || current_expression_ == Expression::THINKING || current_expression_ == Expression::CONFUSED;
     const bool listening = target_expression_ == Expression::LISTENING || current_expression_ == Expression::LISTENING;
     const bool speaking = target_expression_ == Expression::SPEAKING || current_expression_ == Expression::SPEAKING;
-    const lv_coord_t idle_shift = static_cast<lv_coord_t>((animation_ms_ / 700) % 3) - 1;
     const lv_coord_t eye_height = (blink_closed || sleepy) ? std::max<lv_coord_t>(2, static_cast<lv_coord_t>(4 * scale)) : eye_height_base;
 
     for (lv_obj_t* eye : {left_eye_, right_eye_}) {
@@ -143,19 +133,8 @@ void MochiFaceController::Render() {
     }
     const lv_coord_t eye_offset_x = static_cast<lv_coord_t>(58 * scale);
     const lv_coord_t eye_offset_y = static_cast<lv_coord_t>((surprised ? -28 : -22) * scale);
-    lv_obj_align(left_eye_, LV_ALIGN_CENTER, -eye_offset_x + idle_shift, eye_offset_y);
-    lv_obj_align(right_eye_, LV_ALIGN_CENTER, eye_offset_x + idle_shift, eye_offset_y);
-
-    const bool show_pupils = !blink_closed && !sleepy;
-    const lv_coord_t pupil_size = std::max<lv_coord_t>(3, static_cast<lv_coord_t>(8 * scale));
-    const lv_coord_t pupil_shift = static_cast<lv_coord_t>((animation_ms_ / 260) % 3) - 1;
-    for (lv_obj_t* pupil : {left_pupil_, right_pupil_}) {
-        lv_obj_set_size(pupil, pupil_size, pupil_size);
-        if (show_pupils) lv_obj_clear_flag(pupil, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(pupil, LV_OBJ_FLAG_HIDDEN);
-    }
-    lv_obj_align(left_pupil_, LV_ALIGN_CENTER, -eye_offset_x + pupil_shift, eye_offset_y);
-    lv_obj_align(right_pupil_, LV_ALIGN_CENTER, eye_offset_x + pupil_shift, eye_offset_y);
+    lv_obj_align(left_eye_, LV_ALIGN_CENTER, -eye_offset_x, eye_offset_y);
+    lv_obj_align(right_eye_, LV_ALIGN_CENTER, eye_offset_x, eye_offset_y);
 
     const bool current_happy = current_expression_ == Expression::HAPPY || current_expression_ == Expression::LAUGHING;
     const bool current_angry = current_expression_ == Expression::ANGRY;
@@ -199,8 +178,7 @@ void MochiFaceController::Render() {
         else lv_obj_add_flag(brow, LV_OBJ_FLAG_HIDDEN);
     }
 
-    const lv_coord_t speaking_open = static_cast<lv_coord_t>((animation_ms_ / 120) % 3) * static_cast<lv_coord_t>(4 * scale);
-    lv_obj_set_size(mouth_, static_cast<lv_coord_t>((silly ? 34 : (cry ? 26 : speaking ? 24 + speaking_open : thinking ? 18 : 30)) * scale), static_cast<lv_coord_t>((silly ? 20 : surprised ? 18 : speaking ? 5 + speaking_open : 6) * scale));
+    lv_obj_set_size(mouth_, static_cast<lv_coord_t>((silly ? 34 : (cry ? 26 : speaking ? 36 : thinking ? 18 : 30)) * scale), static_cast<lv_coord_t>((silly ? 20 : surprised ? 18 : 6) * scale));
     lv_obj_align(mouth_, LV_ALIGN_CENTER, listening ? static_cast<lv_coord_t>(-8 * scale) : 0, static_cast<lv_coord_t>((65 + (listening ? 4 : 0)) * scale));
     lv_obj_set_style_radius(mouth_, static_cast<lv_coord_t>((silly ? 14 : 3) * scale), 0);
     if (silly || current_silly) {

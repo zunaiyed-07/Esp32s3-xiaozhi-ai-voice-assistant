@@ -39,8 +39,6 @@ private:
     lv_obj_t* root_ = nullptr;
     lv_obj_t* left_eye_ = nullptr;
     lv_obj_t* right_eye_ = nullptr;
-    lv_obj_t* left_pupil_ = nullptr;
-    lv_obj_t* right_pupil_ = nullptr;
     lv_obj_t* left_arc_ = nullptr;
     lv_obj_t* right_arc_ = nullptr;
     lv_obj_t* left_brow_ = nullptr;
@@ -62,7 +60,6 @@ private:
     uint32_t blink_elapsed_ms_ = 0;
     bool blinking_ = false;
     bool fullscreen_ = false;
-    uint32_t animation_ms_ = 0;
     uint32_t random_state_ = 0x6d6f6368;
     lv_timer_t* timer_ = nullptr;
     static MochiFaceController* active_controller_;

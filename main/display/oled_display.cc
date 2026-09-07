@@ -170,8 +170,6 @@ void OledDisplay::InitializeMochiFace() {
     mochi_face_controller_->RegisterChromeObject(status_bar_);
     mochi_face_controller_->RegisterChromeObject(content_);
     mochi_face_controller_->RegisterChromeObject(side_bar_);
-    mochi_face_controller_->RegisterChromeObject(face_container_);
-    mochi_face_controller_->RegisterChromeObject(chat_message_label_);
 }
 
 void OledDisplay::SetFaceAnimationMode(bool enabled) {
