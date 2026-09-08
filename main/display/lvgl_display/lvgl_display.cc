@@ -53,6 +53,18 @@ void LvglDisplay::CycleClockStyle() {
     UpdateStatusBar(true);
 }
 
+void LvglDisplay::ShowClock() {
+    time_t now = time(nullptr);
+    struct tm local_time;
+    localtime_r(&now, &local_time);
+    if (local_time.tm_year < 2025 - 1900) return;
+
+    char time_str[24];
+    const char* formats[] = {"%I:%M %p", "%I.%M %p", "%I:%M:%S %p", "[%I:%M %p]"};
+    strftime(time_str, sizeof(time_str), formats[clock_style_], &local_time);
+    SetStatus(time_str);
+}
+
 void LvglDisplay::UpdateFaceAnimation(uint32_t elapsed_ms) {
     (void)elapsed_ms;
 }
@@ -143,15 +155,13 @@ void LvglDisplay::UpdateStatusBar(bool update_all) {
         if (last_status_update_time_ + std::chrono::seconds(10) < std::chrono::system_clock::now()) {
             // Set status to clock "HH:MM"
             time_t now = time(NULL);
-            struct tm* tm = localtime(&now);
+            struct tm local_time;
+            localtime_r(&now, &local_time);
             // Check if the we have already set the time
-            if (tm->tm_year >= 2025 - 1900) {
-                char time_str[24];
-                const char* formats[] = {"%I:%M %p", "%I.%M %p", "%I:%M:%S %p", "[%I:%M %p]"};
-                strftime(time_str, sizeof(time_str), formats[clock_style_], tm);
-                SetStatus(time_str);
+            if (local_time.tm_year >= 2025 - 1900) {
+                ShowClock();
             } else {
-                ESP_LOGW(TAG, "System time is not set, tm_year: %d", tm->tm_year);
+                ESP_LOGW(TAG, "System time is not set, tm_year: %d", local_time.tm_year);
             }
         }
     }

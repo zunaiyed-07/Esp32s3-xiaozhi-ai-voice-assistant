@@ -926,8 +926,10 @@ void Application::SetListeningMode(ListeningMode mode) {
 void Application::HandleDisplayCommand(const std::string& text, Display* display) {
     if (display == nullptr) return;
 
-    if (ContainsPhrase(text, "exit face animation") || ContainsPhrase(text, "hide face") ||
-        ContainsPhrase(text, "show normal screen") || ContainsPhrase(text, "normal mode")) {
+    if (ContainsPhrase(text, "exit face animation") || ContainsPhrase(text, "exit face only mode") ||
+        ContainsPhrase(text, "hide face") || ContainsPhrase(text, "disable face animation") ||
+        ContainsPhrase(text, "turn off face mode") || ContainsPhrase(text, "show normal screen") ||
+        ContainsPhrase(text, "switch to normal mode") || ContainsPhrase(text, "normal mode")) {
         display->SetFaceAnimationMode(false);
         return;
     }
@@ -942,8 +944,17 @@ void Application::HandleDisplayCommand(const std::string& text, Display* display
     }
 
     if (ContainsPhrase(text, "change the clock face") || ContainsPhrase(text, "change clock face") ||
-        ContainsPhrase(text, "change clock style") || ContainsPhrase(text, "next clock")) {
+        ContainsPhrase(text, "change clock style") || ContainsPhrase(text, "switch clock style") ||
+        ContainsPhrase(text, "switch the clock") || ContainsPhrase(text, "next clock")) {
         display->CycleClockStyle();
+        return;
+    }
+
+    if (ContainsPhrase(text, "show clock") || ContainsPhrase(text, "show the clock") ||
+        ContainsPhrase(text, "show time") || ContainsPhrase(text, "what time is it") ||
+        ContainsPhrase(text, "current time")) {
+        display->SetFaceAnimationMode(false);
+        display->ShowClock();
         return;
     }
 

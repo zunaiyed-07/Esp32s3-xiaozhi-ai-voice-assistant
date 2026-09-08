@@ -25,6 +25,7 @@ public:
     virtual void SetPowerSaveMode(bool on);
     virtual bool SnapshotToJpeg(std::string& jpeg_data, int quality = 80);
     virtual void CycleClockStyle() override;
+    virtual void ShowClock() override;
     virtual void UpdateFaceAnimation(uint32_t elapsed_ms) override;
 
 protected:

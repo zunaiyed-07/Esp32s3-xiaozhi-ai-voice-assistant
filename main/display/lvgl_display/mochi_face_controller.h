@@ -18,8 +18,9 @@ public:
 
     void SetExpression(Expression expression, uint32_t transition_ms = 240);
     void SetExpression(const char* expression, uint32_t transition_ms = 240);
-        void SetSpeakingMouthAnimation(bool enabled) { speaking_mouth_animation_ = enabled; }
-        void SetAnimationSpeed(int speed_percent);
+    void SetSpeakingMouthAnimation(bool enabled) { speaking_mouth_animation_ = enabled; }
+    void SetAnimationSpeed(int speed_percent);
+    void Refresh();
     Expression expression() const { return target_expression_; }
     void Update(uint32_t elapsed_ms = 16);
 
@@ -53,9 +54,11 @@ private:
     lv_obj_t* right_tear_ = nullptr;
 
     std::array<lv_obj_t*, kChromeObjectCount> chrome_objects_{};
+    std::array<bool, kChromeObjectCount> chrome_was_hidden_{};
     size_t chrome_count_ = 0;
     std::array<lv_point_precise_t, 2> left_line_points_{};
     std::array<lv_point_precise_t, 2> right_line_points_{};
+    std::array<lv_point_precise_t, 5> mouth_line_points_{};
     Expression current_expression_ = Expression::NORMAL;
     Expression target_expression_ = Expression::NORMAL;
     uint32_t transition_elapsed_ms_ = 0;

@@ -53,6 +53,7 @@ public:
     virtual void SetFaceAnimationSpeed(int speed_percent) { (void)speed_percent; }
     virtual void UpdateFaceAnimation(uint32_t elapsed_ms) { (void)elapsed_ms; }
     virtual void CycleClockStyle() {}
+    virtual void ShowClock() {}
 
     inline int width() const { return width_; }
     inline int height() const { return height_; }

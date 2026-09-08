@@ -1162,7 +1162,10 @@ void LcdDisplay::SetSpeakingMouthAnimation(bool enabled) {
     if (speaking_mouth_animation_ == enabled) return;
     DisplayLockGuard lock(this);
     speaking_mouth_animation_ = enabled;
-    if (mochi_face_controller_ != nullptr) mochi_face_controller_->SetSpeakingMouthAnimation(enabled);
+    if (mochi_face_controller_ != nullptr) {
+        mochi_face_controller_->SetSpeakingMouthAnimation(enabled);
+        mochi_face_controller_->Refresh();
+    }
     Settings settings("display", true);
     settings.SetBool("speaking_mouth", enabled);
 }

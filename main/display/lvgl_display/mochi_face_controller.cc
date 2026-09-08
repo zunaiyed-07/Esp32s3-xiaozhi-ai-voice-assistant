@@ -5,10 +5,10 @@
 #include <cmath>
 
 namespace {
-constexpr lv_coord_t kEyeWidth = 42;
-constexpr lv_coord_t kEyeHeight = 58;
-constexpr lv_coord_t kStroke = 7;
-const lv_color_t kFaceColor = LV_COLOR_MAKE(20, 20, 24);
+constexpr lv_coord_t kEyeWidth = 70;
+constexpr lv_coord_t kEyeHeight = 92;
+constexpr lv_coord_t kStroke = 8;
+const lv_color_t kFaceColor = lv_color_white();
 
 uint32_t NextRandom(uint32_t& state) {
     state = state * 1664525u + 1013904223u;
@@ -19,13 +19,21 @@ uint32_t NextRandom(uint32_t& state) {
 MochiFaceController* MochiFaceController::active_controller_ = nullptr;
 
 MochiFaceController::MochiFaceController(lv_obj_t* parent) {
-    root_ = lv_obj_create(parent != nullptr ? parent : lv_screen_active());
-    lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
+    lv_obj_t* face_parent = parent != nullptr ? parent : lv_screen_active();
+    lv_obj_update_layout(face_parent);
+    root_ = lv_obj_create(face_parent);
+    lv_coord_t parent_width = lv_obj_get_width(face_parent);
+    lv_coord_t parent_height = lv_obj_get_height(face_parent);
+    if (parent_width <= 0) parent_width = lv_display_get_horizontal_resolution(lv_display_get_default());
+    if (parent_height <= 0) parent_height = lv_display_get_vertical_resolution(lv_display_get_default());
+    lv_obj_set_size(root_, parent_width, parent_height);
+    lv_obj_align(root_, LV_ALIGN_TOP_LEFT, 0, 0);
     lv_obj_set_style_bg_color(root_, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(root_, 0, 0);
     lv_obj_set_style_pad_all(root_, 0, 0);
-    lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_SCROLLABLE));
+    lv_obj_clear_flag(root_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE));
     lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN);
     CreateFaceObjects();
     blink_due_ms_ = 2600 + (NextRandom(random_state_) % 4200);
@@ -50,12 +58,12 @@ void MochiFaceController::CreateFaceObjects() {
     right_arc_ = lv_arc_create(root_);
     left_brow_ = lv_line_create(root_);
     right_brow_ = lv_line_create(root_);
-    mouth_ = lv_obj_create(root_);
+    mouth_ = lv_line_create(root_);
     tongue_ = lv_obj_create(root_);
     left_tear_ = lv_obj_create(root_);
     right_tear_ = lv_obj_create(root_);
 
-    for (lv_obj_t* object : {left_eye_, right_eye_, left_pupil_, right_pupil_, mouth_, tongue_, left_tear_, right_tear_}) {
+    for (lv_obj_t* object : {left_eye_, right_eye_, left_pupil_, right_pupil_, tongue_, left_tear_, right_tear_}) {
         lv_obj_set_style_bg_color(object, kFaceColor, 0);
         lv_obj_set_style_border_width(object, 0, 0);
         lv_obj_set_style_radius(object, LV_RADIUS_CIRCLE, 0);
@@ -72,9 +80,12 @@ void MochiFaceController::CreateFaceObjects() {
         lv_obj_set_style_line_width(line, kStroke, 0);
         lv_obj_set_style_line_rounded(line, true, 0);
     }
+    lv_obj_set_style_line_color(mouth_, kFaceColor, 0);
+    lv_obj_set_style_line_width(mouth_, kStroke, 0);
+    lv_obj_set_style_line_rounded(mouth_, true, 0);
     lv_obj_add_flag(tongue_, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_set_style_bg_color(left_pupil_, lv_color_white(), 0);
-    lv_obj_set_style_bg_color(right_pupil_, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(left_pupil_, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(right_pupil_, lv_color_black(), 0);
     lv_obj_set_size(left_pupil_, 12, 16);
     lv_obj_set_size(right_pupil_, 12, 16);
     lv_obj_add_flag(left_tear_, LV_OBJ_FLAG_HIDDEN);
@@ -85,6 +96,7 @@ void MochiFaceController::SetExpression(Expression expression, uint32_t transiti
     target_expression_ = expression;
     transition_elapsed_ms_ = 0;
     transition_duration_ms_ = std::max<uint32_t>(1, transition_ms);
+    Refresh();
 }
 
 void MochiFaceController::SetExpression(const char* expression, uint32_t transition_ms) {
@@ -93,9 +105,16 @@ void MochiFaceController::SetExpression(const char* expression, uint32_t transit
 
 void MochiFaceController::SetAnimationSpeed(int speed_percent) {
     animation_speed_percent_ = std::max(50, std::min(200, speed_percent));
+    Refresh();
+}
+
+void MochiFaceController::Refresh() {
+    Render();
+    lv_obj_invalidate(root_);
 }
 
 void MochiFaceController::Update(uint32_t elapsed_ms) {
+    lv_obj_update_layout(root_);
     if (current_expression_ != target_expression_) {
         transition_elapsed_ms_ = std::min(transition_elapsed_ms_ + elapsed_ms, transition_duration_ms_);
         if (transition_elapsed_ms_ == transition_duration_ms_) current_expression_ = target_expression_;
@@ -117,13 +136,23 @@ void MochiFaceController::Update(uint32_t elapsed_ms) {
     }
     speech_elapsed_ms_ += elapsed_ms;
     eye_motion_elapsed_ms_ += elapsed_ms;
-    Render();
+    Refresh();
 }
 
 void MochiFaceController::Render() {
+    lv_obj_t* parent = lv_obj_get_parent(root_);
+    if (parent != nullptr) {
+        lv_obj_update_layout(parent);
+        const lv_coord_t parent_width = lv_obj_get_width(parent);
+        const lv_coord_t parent_height = lv_obj_get_height(parent);
+        if (parent_width > 0 && parent_height > 0) {
+            lv_obj_set_size(root_, parent_width, parent_height);
+        }
+    }
+    lv_obj_update_layout(root_);
     const lv_coord_t display_width = lv_obj_get_width(root_);
     const lv_coord_t display_height = lv_obj_get_height(root_);
-    const float scale = std::max(0.45f, std::min(display_width / 240.0f, display_height / 240.0f));
+    const float scale = std::max(0.25f, std::min(display_width / 210.0f, display_height / 150.0f));
     const lv_coord_t eye_width = static_cast<lv_coord_t>(kEyeWidth * scale);
     const lv_coord_t eye_height_base = static_cast<lv_coord_t>(kEyeHeight * scale);
     const lv_coord_t stroke = std::max<lv_coord_t>(3, static_cast<lv_coord_t>(kStroke * scale));
@@ -148,12 +177,12 @@ void MochiFaceController::Render() {
         lv_obj_set_size(eye, eye_width, eye_height);
         lv_obj_set_style_radius(eye, eye_height <= 4 * scale ? 2 : LV_RADIUS_CIRCLE, 0);
     }
-    const lv_coord_t eye_offset_x = static_cast<lv_coord_t>(58 * scale);
+    const lv_coord_t eye_offset_x = static_cast<lv_coord_t>(70 * scale);
     const lv_coord_t eye_offset_y = static_cast<lv_coord_t>((surprised ? -28 : -22) * scale);
     lv_obj_align(left_eye_, LV_ALIGN_CENTER, -eye_offset_x, eye_offset_y);
     lv_obj_align(right_eye_, LV_ALIGN_CENTER, eye_offset_x, eye_offset_y);
-    const lv_coord_t pupil_width = std::max<lv_coord_t>(4, static_cast<lv_coord_t>(12 * scale));
-    const lv_coord_t pupil_height = std::max<lv_coord_t>(4, static_cast<lv_coord_t>(16 * scale));
+    const lv_coord_t pupil_width = std::max<lv_coord_t>(5, static_cast<lv_coord_t>(18 * scale));
+    const lv_coord_t pupil_height = std::max<lv_coord_t>(6, static_cast<lv_coord_t>(26 * scale));
     for (lv_obj_t* pupil : {left_pupil_, right_pupil_}) {
         lv_obj_set_size(pupil, pupil_width, pupil_height);
         if (blink_closed || sleepy) lv_obj_add_flag(pupil, LV_OBJ_FLAG_HIDDEN);
@@ -211,9 +240,19 @@ void MochiFaceController::Render() {
     const bool animate_speaking = speaking && speaking_mouth_animation_;
     const lv_coord_t mouth_width = animate_speaking ? speech_widths[speech_phase] : (silly ? 34 : (cry ? 26 : thinking ? 18 : 30));
     const lv_coord_t mouth_height = animate_speaking ? speech_heights[speech_phase] : (silly ? 20 : surprised ? 18 : 6);
-    lv_obj_set_size(mouth_, static_cast<lv_coord_t>(mouth_width * scale), static_cast<lv_coord_t>(mouth_height * scale));
-    lv_obj_align(mouth_, LV_ALIGN_CENTER, listening ? static_cast<lv_coord_t>(-8 * scale) : 0, static_cast<lv_coord_t>((65 + (listening ? 4 : 0)) * scale));
-    lv_obj_set_style_radius(mouth_, static_cast<lv_coord_t>((silly ? 14 : 3) * scale), 0);
+    const lv_coord_t mouth_depth = static_cast<lv_coord_t>((animate_speaking ? mouth_height : (surprised ? 18 : 12)) * scale);
+    const lv_coord_t mouth_width_scaled = static_cast<lv_coord_t>(mouth_width * scale);
+    const lv_coord_t mouth_stroke = std::max<lv_coord_t>(2, static_cast<lv_coord_t>(7 * scale));
+    const lv_coord_t mouth_x_step = mouth_width_scaled / 4;
+    mouth_line_points_[0] = {mouth_stroke, mouth_stroke};
+    mouth_line_points_[1] = {static_cast<lv_coord_t>(mouth_stroke + mouth_x_step), static_cast<lv_coord_t>(mouth_stroke + mouth_depth * 0.7f)};
+    mouth_line_points_[2] = {static_cast<lv_coord_t>(mouth_stroke + mouth_x_step * 2), static_cast<lv_coord_t>(mouth_stroke + mouth_depth)};
+    mouth_line_points_[3] = {static_cast<lv_coord_t>(mouth_stroke + mouth_x_step * 3), static_cast<lv_coord_t>(mouth_stroke + mouth_depth * 0.7f)};
+    mouth_line_points_[4] = {static_cast<lv_coord_t>(mouth_stroke + mouth_width_scaled), mouth_stroke};
+    lv_line_set_points(mouth_, mouth_line_points_.data(), mouth_line_points_.size());
+    lv_obj_set_style_line_width(mouth_, mouth_stroke, 0);
+    lv_obj_set_size(mouth_, mouth_width_scaled + mouth_stroke * 2, mouth_depth + static_cast<lv_coord_t>(10 * scale) + mouth_stroke * 2);
+    lv_obj_align(mouth_, LV_ALIGN_CENTER, listening ? static_cast<lv_coord_t>(-8 * scale) : 0, static_cast<lv_coord_t>((70 + (listening ? 4 : 0)) * scale));
     if (silly || current_silly) {
         lv_obj_set_size(tongue_, static_cast<lv_coord_t>(14 * scale), static_cast<lv_coord_t>(18 * scale));
         lv_obj_align(tongue_, LV_ALIGN_CENTER, 0, static_cast<lv_coord_t>(78 * scale));
@@ -267,21 +306,38 @@ void MochiFaceController::TimerCallback(lv_timer_t* timer) {
 }
 
 void MochiFaceController::EnterFullscreenFace(uint32_t duration_ms) {
+    (void)duration_ms;
     fullscreen_ = true;
     lv_timer_resume(timer_);
+    lv_obj_set_style_bg_color(root_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
     lv_obj_clear_flag(root_, LV_OBJ_FLAG_HIDDEN);
-    for (size_t index = 0; index < chrome_count_; ++index) AnimateOpacity(chrome_objects_[index], 255, 0, duration_ms, true);
-    AnimateOpacity(root_, 0, 255, duration_ms, false);
+    lv_obj_move_foreground(root_);
+    for (size_t index = 0; index < chrome_count_; ++index) {
+        if (chrome_objects_[index] != nullptr) {
+            chrome_was_hidden_[index] = lv_obj_has_flag(chrome_objects_[index], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(chrome_objects_[index], LV_OBJ_FLAG_HIDDEN);
+        }
+    }
+    Render();
+    lv_obj_invalidate(root_);
 }
 
 void MochiFaceController::ExitFullscreenFace(uint32_t duration_ms) {
+    (void)duration_ms;
     fullscreen_ = false;
     lv_timer_pause(timer_);
     for (size_t index = 0; index < chrome_count_; ++index) {
-        lv_obj_clear_flag(chrome_objects_[index], LV_OBJ_FLAG_HIDDEN);
-        AnimateOpacity(chrome_objects_[index], 0, 255, duration_ms, false);
+        if (chrome_objects_[index] != nullptr) {
+            if (chrome_was_hidden_[index]) {
+                lv_obj_add_flag(chrome_objects_[index], LV_OBJ_FLAG_HIDDEN);
+            } else {
+                lv_obj_clear_flag(chrome_objects_[index], LV_OBJ_FLAG_HIDDEN);
+            }
+        }
     }
-    AnimateOpacity(root_, 255, 0, duration_ms, true);
+    lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_invalidate(lv_screen_active());
 }
 
 MochiFaceController::Expression MochiFaceController::ParseExpression(const char* expression) {
