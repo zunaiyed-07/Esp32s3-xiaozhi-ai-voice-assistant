@@ -95,6 +95,24 @@ void McpServer::AddCommonTools() {
                 }
                 return false;
             });
+
+        AddTool("self.screen.set_face_settings",
+            "Configure the animated face. Face-only mode is off by default; speed is 50 to 200 percent.",
+            PropertyList({
+                Property("face_only_mode", kPropertyTypeBoolean),
+                Property("auto_expression", kPropertyTypeBoolean),
+                Property("speaking_mouth", kPropertyTypeBoolean),
+                Property("default_expression", kPropertyTypeString),
+                Property("speed_percent", kPropertyTypeInteger, 50, 200)
+            }),
+            [display](const PropertyList& properties) -> ReturnValue {
+                display->SetFaceAnimationMode(properties["face_only_mode"].value<bool>());
+                display->SetFaceAutoExpression(properties["auto_expression"].value<bool>());
+                display->SetSpeakingMouthAnimation(properties["speaking_mouth"].value<bool>());
+                display->SetDefaultFaceExpression(properties["default_expression"].value<std::string>().c_str());
+                display->SetFaceAnimationSpeed(properties["speed_percent"].value<int>());
+                return true;
+            });
     }
 
     auto camera = board.GetCamera();

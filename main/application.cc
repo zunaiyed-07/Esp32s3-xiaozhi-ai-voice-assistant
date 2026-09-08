@@ -932,7 +932,7 @@ void Application::HandleDisplayCommand(const std::string& text, Display* display
         return;
     }
 
-    if (ContainsPhrase(text, "show face animation") || ContainsPhrase(text, "show only face animation") ||
+    if (ContainsPhrase(text, "show face mode") || ContainsPhrase(text, "show face animation") || ContainsPhrase(text, "show only face animation") ||
         ContainsPhrase(text, "face animation only") || ContainsPhrase(text, "show face only") ||
         ContainsPhrase(text, "face only mode") || ContainsPhrase(text, "switch to face only mode") ||
         ContainsPhrase(text, "face animation") ||
@@ -947,7 +947,8 @@ void Application::HandleDisplayCommand(const std::string& text, Display* display
         return;
     }
 
-    if (ContainsPhrase(text, "be happy") || ContainsPhrase(text, "show happy face")) display->SetEmotion("happy");
+    if (ContainsPhrase(text, "reset expression") || ContainsPhrase(text, "reset face")) display->SetEmotion("normal");
+    else if (ContainsPhrase(text, "be happy") || ContainsPhrase(text, "show happy face")) display->SetEmotion("happy");
     else if (ContainsPhrase(text, "be angry") || ContainsPhrase(text, "show angry face")) display->SetEmotion("angry");
     else if (ContainsPhrase(text, "cry") || ContainsPhrase(text, "show crying face")) display->SetEmotion("crying");
     else if (ContainsPhrase(text, "be silly")) display->SetEmotion("silly");
@@ -955,6 +956,9 @@ void Application::HandleDisplayCommand(const std::string& text, Display* display
     else if (ContainsPhrase(text, "sleep")) display->SetEmotion("sleepy");
     else if (ContainsPhrase(text, "show love")) display->SetEmotion("love");
     else if (ContainsPhrase(text, "what are you thinking")) display->SetEmotion("thinking");
+    else if (ContainsPhrase(text, "be confused")) display->SetEmotion("confused");
+    else if (ContainsPhrase(text, "be sad")) display->SetEmotion("sad");
+    else if (ContainsPhrase(text, "be laughing") || ContainsPhrase(text, "laugh")) display->SetEmotion("laughing");
 }
 
 void Application::Reboot() {

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cmath>
 
 namespace {
 constexpr lv_coord_t kEyeWidth = 42;
@@ -20,10 +21,12 @@ MochiFaceController* MochiFaceController::active_controller_ = nullptr;
 MochiFaceController::MochiFaceController(lv_obj_t* parent) {
     root_ = lv_obj_create(parent != nullptr ? parent : lv_screen_active());
     lv_obj_set_size(root_, LV_PCT(100), LV_PCT(100));
-    lv_obj_set_style_bg_opa(root_, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_bg_color(root_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(root_, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(root_, 0, 0);
     lv_obj_set_style_pad_all(root_, 0, 0);
     lv_obj_clear_flag(root_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(root_, LV_OBJ_FLAG_HIDDEN);
     CreateFaceObjects();
     blink_due_ms_ = 2600 + (NextRandom(random_state_) % 4200);
     active_controller_ = this;
@@ -41,6 +44,8 @@ MochiFaceController::~MochiFaceController() {
 void MochiFaceController::CreateFaceObjects() {
     left_eye_ = lv_obj_create(root_);
     right_eye_ = lv_obj_create(root_);
+    left_pupil_ = lv_obj_create(root_);
+    right_pupil_ = lv_obj_create(root_);
     left_arc_ = lv_arc_create(root_);
     right_arc_ = lv_arc_create(root_);
     left_brow_ = lv_line_create(root_);
@@ -50,7 +55,7 @@ void MochiFaceController::CreateFaceObjects() {
     left_tear_ = lv_obj_create(root_);
     right_tear_ = lv_obj_create(root_);
 
-    for (lv_obj_t* object : {left_eye_, right_eye_, mouth_, tongue_, left_tear_, right_tear_}) {
+    for (lv_obj_t* object : {left_eye_, right_eye_, left_pupil_, right_pupil_, mouth_, tongue_, left_tear_, right_tear_}) {
         lv_obj_set_style_bg_color(object, kFaceColor, 0);
         lv_obj_set_style_border_width(object, 0, 0);
         lv_obj_set_style_radius(object, LV_RADIUS_CIRCLE, 0);
@@ -68,6 +73,10 @@ void MochiFaceController::CreateFaceObjects() {
         lv_obj_set_style_line_rounded(line, true, 0);
     }
     lv_obj_add_flag(tongue_, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_bg_color(left_pupil_, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(right_pupil_, lv_color_white(), 0);
+    lv_obj_set_size(left_pupil_, 12, 16);
+    lv_obj_set_size(right_pupil_, 12, 16);
     lv_obj_add_flag(left_tear_, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(right_tear_, LV_OBJ_FLAG_HIDDEN);
 }
@@ -80,6 +89,10 @@ void MochiFaceController::SetExpression(Expression expression, uint32_t transiti
 
 void MochiFaceController::SetExpression(const char* expression, uint32_t transition_ms) {
     SetExpression(ParseExpression(expression), transition_ms);
+}
+
+void MochiFaceController::SetAnimationSpeed(int speed_percent) {
+    animation_speed_percent_ = std::max(50, std::min(200, speed_percent));
 }
 
 void MochiFaceController::Update(uint32_t elapsed_ms) {
@@ -102,6 +115,8 @@ void MochiFaceController::Update(uint32_t elapsed_ms) {
             blink_elapsed_ms_ = 0;
         }
     }
+    speech_elapsed_ms_ += elapsed_ms;
+    eye_motion_elapsed_ms_ += elapsed_ms;
     Render();
 }
 
@@ -126,6 +141,8 @@ void MochiFaceController::Render() {
     const bool listening = target_expression_ == Expression::LISTENING || current_expression_ == Expression::LISTENING;
     const bool speaking = target_expression_ == Expression::SPEAKING || current_expression_ == Expression::SPEAKING;
     const lv_coord_t eye_height = (blink_closed || sleepy) ? std::max<lv_coord_t>(2, static_cast<lv_coord_t>(4 * scale)) : eye_height_base;
+    const lv_coord_t eye_motion_x = static_cast<lv_coord_t>(std::sin(eye_motion_elapsed_ms_ / 900.0f) * 5 * scale);
+    const lv_coord_t eye_motion_y = static_cast<lv_coord_t>(std::sin(eye_motion_elapsed_ms_ / 1300.0f) * 3 * scale);
 
     for (lv_obj_t* eye : {left_eye_, right_eye_}) {
         lv_obj_set_size(eye, eye_width, eye_height);
@@ -135,6 +152,15 @@ void MochiFaceController::Render() {
     const lv_coord_t eye_offset_y = static_cast<lv_coord_t>((surprised ? -28 : -22) * scale);
     lv_obj_align(left_eye_, LV_ALIGN_CENTER, -eye_offset_x, eye_offset_y);
     lv_obj_align(right_eye_, LV_ALIGN_CENTER, eye_offset_x, eye_offset_y);
+    const lv_coord_t pupil_width = std::max<lv_coord_t>(4, static_cast<lv_coord_t>(12 * scale));
+    const lv_coord_t pupil_height = std::max<lv_coord_t>(4, static_cast<lv_coord_t>(16 * scale));
+    for (lv_obj_t* pupil : {left_pupil_, right_pupil_}) {
+        lv_obj_set_size(pupil, pupil_width, pupil_height);
+        if (blink_closed || sleepy) lv_obj_add_flag(pupil, LV_OBJ_FLAG_HIDDEN);
+        else lv_obj_clear_flag(pupil, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_obj_align(left_pupil_, LV_ALIGN_CENTER, -eye_offset_x + eye_motion_x, eye_offset_y + eye_motion_y);
+    lv_obj_align(right_pupil_, LV_ALIGN_CENTER, eye_offset_x + eye_motion_x, eye_offset_y + eye_motion_y);
 
     const bool current_happy = current_expression_ == Expression::HAPPY || current_expression_ == Expression::LAUGHING;
     const bool current_angry = current_expression_ == Expression::ANGRY;
@@ -178,7 +204,14 @@ void MochiFaceController::Render() {
         else lv_obj_add_flag(brow, LV_OBJ_FLAG_HIDDEN);
     }
 
-    lv_obj_set_size(mouth_, static_cast<lv_coord_t>((silly ? 34 : (cry ? 26 : speaking ? 36 : thinking ? 18 : 30)) * scale), static_cast<lv_coord_t>((silly ? 20 : surprised ? 18 : 6) * scale));
+    const uint32_t speech_period = static_cast<uint32_t>(115 * 100 / animation_speed_percent_);
+    const uint32_t speech_phase = (speech_elapsed_ms_ / std::max<uint32_t>(1, speech_period)) % 5;
+    const lv_coord_t speech_widths[] = {18, 27, 36, 29, 22};
+    const lv_coord_t speech_heights[] = {5, 10, 17, 12, 7};
+    const bool animate_speaking = speaking && speaking_mouth_animation_;
+    const lv_coord_t mouth_width = animate_speaking ? speech_widths[speech_phase] : (silly ? 34 : (cry ? 26 : thinking ? 18 : 30));
+    const lv_coord_t mouth_height = animate_speaking ? speech_heights[speech_phase] : (silly ? 20 : surprised ? 18 : 6);
+    lv_obj_set_size(mouth_, static_cast<lv_coord_t>(mouth_width * scale), static_cast<lv_coord_t>(mouth_height * scale));
     lv_obj_align(mouth_, LV_ALIGN_CENTER, listening ? static_cast<lv_coord_t>(-8 * scale) : 0, static_cast<lv_coord_t>((65 + (listening ? 4 : 0)) * scale));
     lv_obj_set_style_radius(mouth_, static_cast<lv_coord_t>((silly ? 14 : 3) * scale), 0);
     if (silly || current_silly) {

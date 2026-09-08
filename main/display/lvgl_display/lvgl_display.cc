@@ -116,6 +116,7 @@ void LvglDisplay::ShowNotification(const char* notification, int duration_ms) {
 }
 
 void LvglDisplay::UpdateStatusBar(bool update_all) {
+    if (IsFaceAnimationMode()) return;
     auto& app = Application::GetInstance();
     auto& board = Board::GetInstance();
     auto codec = board.GetAudioCodec();

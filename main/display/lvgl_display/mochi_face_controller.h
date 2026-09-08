@@ -18,6 +18,8 @@ public:
 
     void SetExpression(Expression expression, uint32_t transition_ms = 240);
     void SetExpression(const char* expression, uint32_t transition_ms = 240);
+        void SetSpeakingMouthAnimation(bool enabled) { speaking_mouth_animation_ = enabled; }
+        void SetAnimationSpeed(int speed_percent);
     Expression expression() const { return target_expression_; }
     void Update(uint32_t elapsed_ms = 16);
 
@@ -39,6 +41,8 @@ private:
     lv_obj_t* root_ = nullptr;
     lv_obj_t* left_eye_ = nullptr;
     lv_obj_t* right_eye_ = nullptr;
+    lv_obj_t* left_pupil_ = nullptr;
+    lv_obj_t* right_pupil_ = nullptr;
     lv_obj_t* left_arc_ = nullptr;
     lv_obj_t* right_arc_ = nullptr;
     lv_obj_t* left_brow_ = nullptr;
@@ -58,8 +62,12 @@ private:
     uint32_t transition_duration_ms_ = 240;
     uint32_t blink_due_ms_ = 0;
     uint32_t blink_elapsed_ms_ = 0;
+    uint32_t speech_elapsed_ms_ = 0;
+    uint32_t eye_motion_elapsed_ms_ = 0;
     bool blinking_ = false;
     bool fullscreen_ = false;
+        bool speaking_mouth_animation_ = true;
+        int animation_speed_percent_ = 100;
     uint32_t random_state_ = 0x6d6f6368;
     lv_timer_t* timer_ = nullptr;
     static MochiFaceController* active_controller_;

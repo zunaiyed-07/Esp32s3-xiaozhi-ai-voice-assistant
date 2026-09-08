@@ -74,6 +74,12 @@ LcdDisplay::LcdDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handle_
     Settings settings("display", false);
     std::string theme_name = settings.GetString("theme", "light");
     current_theme_ = LvglThemeManager::GetInstance().GetTheme(theme_name);
+    face_animation_mode_ = settings.GetBool("face_only_mode", false);
+    face_auto_expression_ = settings.GetBool("face_auto_expression", true);
+    speaking_mouth_animation_ = settings.GetBool("speaking_mouth", true);
+    const int32_t stored_face_speed = settings.GetInt("face_speed", 100);
+    face_animation_speed_percent_ = static_cast<int>(std::max<int32_t>(50, std::min<int32_t>(200, stored_face_speed)));
+    default_face_expression_ = settings.GetString("default_expression", "normal");
 
     // Create a timer to hide the preview image
     esp_timer_create_args_t preview_timer_args = {
@@ -306,6 +312,12 @@ void LcdDisplay::InitializeMochiFace() {
     mochi_face_controller_->RegisterChromeObject(emoji_box_);
     mochi_face_controller_->RegisterChromeObject(preview_image_);
     mochi_face_controller_->RegisterChromeObject(low_battery_popup_);
+    mochi_face_controller_->SetSpeakingMouthAnimation(speaking_mouth_animation_);
+    mochi_face_controller_->SetAnimationSpeed(face_animation_speed_percent_);
+    mochi_face_controller_->SetExpression(default_face_expression_.c_str());
+    if (face_animation_mode_) {
+        mochi_face_controller_->EnterFullscreenFace(0);
+    }
 }
 
 LcdDisplay::~LcdDisplay() {
@@ -1104,7 +1116,8 @@ void LcdDisplay::SetEmotion(const char* emotion) {
 }
 
 void LcdDisplay::SetFaceState(FaceState state) {
-    if (mochi_face_controller_ == nullptr || !face_animation_mode_) return;
+    if (mochi_face_controller_ == nullptr || !face_animation_mode_ || !face_auto_expression_) return;
+    DisplayLockGuard lock(this);
     switch (state) {
         case FaceState::Listening:
             mochi_face_controller_->SetExpression(MochiFaceController::Expression::LISTENING);
@@ -1114,7 +1127,7 @@ void LcdDisplay::SetFaceState(FaceState state) {
             break;
         case FaceState::Idle:
         default:
-            mochi_face_controller_->SetExpression(MochiFaceController::Expression::NORMAL);
+            mochi_face_controller_->SetExpression(default_face_expression_.c_str());
             break;
     }
 }
@@ -1123,6 +1136,8 @@ void LcdDisplay::SetFaceAnimationMode(bool enabled) {
     if (mochi_face_controller_ == nullptr || enabled == face_animation_mode_) return;
     DisplayLockGuard lock(this);
     face_animation_mode_ = enabled;
+    Settings settings("display", true);
+    settings.SetBool("face_only_mode", enabled);
     if (enabled) {
         mochi_face_controller_->SetExpression(MochiFaceController::Expression::NORMAL);
         mochi_face_controller_->EnterFullscreenFace();
@@ -1133,6 +1148,42 @@ void LcdDisplay::SetFaceAnimationMode(bool enabled) {
 
 bool LcdDisplay::IsFaceAnimationMode() const {
     return face_animation_mode_;
+}
+
+void LcdDisplay::SetFaceAutoExpression(bool enabled) {
+    if (face_auto_expression_ == enabled) return;
+    DisplayLockGuard lock(this);
+    face_auto_expression_ = enabled;
+    Settings settings("display", true);
+    settings.SetBool("face_auto_expression", enabled);
+}
+
+void LcdDisplay::SetSpeakingMouthAnimation(bool enabled) {
+    if (speaking_mouth_animation_ == enabled) return;
+    DisplayLockGuard lock(this);
+    speaking_mouth_animation_ = enabled;
+    if (mochi_face_controller_ != nullptr) mochi_face_controller_->SetSpeakingMouthAnimation(enabled);
+    Settings settings("display", true);
+    settings.SetBool("speaking_mouth", enabled);
+}
+
+void LcdDisplay::SetFaceAnimationSpeed(int speed_percent) {
+    speed_percent = std::max(50, std::min(200, speed_percent));
+    if (face_animation_speed_percent_ == speed_percent) return;
+    DisplayLockGuard lock(this);
+    face_animation_speed_percent_ = speed_percent;
+    if (mochi_face_controller_ != nullptr) mochi_face_controller_->SetAnimationSpeed(face_animation_speed_percent_);
+    Settings settings("display", true);
+    settings.SetInt("face_speed", face_animation_speed_percent_);
+}
+
+void LcdDisplay::SetDefaultFaceExpression(const char* expression) {
+    if (expression == nullptr || default_face_expression_ == expression) return;
+    DisplayLockGuard lock(this);
+    default_face_expression_ = expression;
+    if (mochi_face_controller_ != nullptr) mochi_face_controller_->SetExpression(expression);
+    Settings settings("display", true);
+    settings.SetString("default_expression", default_face_expression_);
 }
 
 void LcdDisplay::UpdateFaceAnimation(uint32_t elapsed_ms) {

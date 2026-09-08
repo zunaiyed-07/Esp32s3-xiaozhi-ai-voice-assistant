@@ -54,6 +54,14 @@ public:
     virtual void SetFaceState(FaceState state) override;
     virtual void SetFaceAnimationMode(bool enabled) override;
     virtual bool IsFaceAnimationMode() const override;
+    virtual void SetDefaultFaceExpression(const char* expression) override;
+    virtual void SetFaceAutoExpression(bool enabled) override;
+    virtual void SetSpeakingMouthAnimation(bool enabled) override;
+    virtual void SetFaceAnimationSpeed(int speed_percent) override;
+        bool face_auto_expression_ = true;
+        bool speaking_mouth_animation_ = true;
+        int face_animation_speed_percent_ = 100;
+        std::string default_face_expression_ = "normal";
     virtual void UpdateFaceAnimation(uint32_t elapsed_ms) override;
     virtual void SetChatMessage(const char* role, const char* content) override;
     virtual void ClearChatMessages() override;
