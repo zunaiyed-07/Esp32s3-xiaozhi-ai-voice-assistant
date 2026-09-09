@@ -388,10 +388,12 @@ void OledDisplay::SetupUI_128x64() {
     mute_label_ = lv_label_create(right_icons);
     lv_label_set_text(mute_label_, "");
     lv_obj_set_style_text_font(mute_label_, icon_font, 0);
+    lv_obj_set_style_text_color(mute_label_, lv_color_white(), 0);
 
     battery_label_ = lv_label_create(right_icons);
     lv_label_set_text(battery_label_, "");
     lv_obj_set_style_text_font(battery_label_, icon_font, 0);
+    lv_obj_set_style_text_color(battery_label_, lv_color_white(), 0);
 
     /* Layer 2: Status bar - for center text labels */
     status_bar_ = lv_obj_create(screen);
@@ -408,6 +410,7 @@ void OledDisplay::SetupUI_128x64() {
     notification_label_ = lv_label_create(status_bar_);
     lv_obj_set_width(notification_label_, LV_HOR_RES);
     lv_obj_set_style_text_align(notification_label_, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_color(notification_label_, lv_color_white(), 0);
     lv_label_set_text(notification_label_, "");
     lv_obj_align(notification_label_, LV_ALIGN_CENTER, 0, 0);
     lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
@@ -416,6 +419,7 @@ void OledDisplay::SetupUI_128x64() {
     lv_obj_set_width(status_label_, LV_HOR_RES);
     lv_label_set_long_mode(status_label_, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_obj_set_style_text_align(status_label_, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_color(status_label_, lv_color_white(), 0);
     lv_label_set_text(status_label_, Lang::Strings::INITIALIZING);
     lv_obj_align(status_label_, LV_ALIGN_CENTER, 0, 0);
 
@@ -423,6 +427,9 @@ void OledDisplay::SetupUI_128x64() {
     content_ = lv_obj_create(container_);
     lv_obj_set_scrollbar_mode(content_, LV_SCROLLBAR_MODE_OFF);
     lv_obj_set_style_radius(content_, 0, 0);
+    lv_obj_set_style_bg_color(content_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(content_, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(content_, 0, 0);
     lv_obj_set_style_pad_all(content_, 0, 0);
     lv_obj_set_width(content_, LV_HOR_RES);
     lv_obj_set_size(content_, 128, 48);
@@ -446,13 +453,14 @@ void OledDisplay::SetupUI_128x64() {
     face_container_ = lv_obj_create(content_);
     lv_obj_set_size(face_container_, 128, 48);
     lv_obj_set_style_border_width(face_container_, 0, 0);
+    lv_obj_set_style_bg_color(face_container_, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(face_container_, LV_OPA_TRANSP, 0);
 
     left_eye_ = lv_obj_create(face_container_);
     right_eye_ = lv_obj_create(face_container_);
 
-    lv_obj_set_style_bg_color(left_eye_, lv_color_black(), 0);
-    lv_obj_set_style_bg_color(right_eye_, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(left_eye_, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(right_eye_, lv_color_white(), 0);
 
     lv_obj_set_style_border_width(left_eye_, 0, 0);
     lv_obj_set_style_border_width(right_eye_, 0, 0);
@@ -467,7 +475,7 @@ void OledDisplay::SetupUI_128x64() {
     lv_obj_set_style_radius(right_eye_, 2, 0);
 
     mouth_ = lv_obj_create(face_container_);
-    lv_obj_set_style_bg_color(mouth_, lv_color_black(), 0);
+    lv_obj_set_style_bg_color(mouth_, lv_color_white(), 0);
     lv_obj_set_style_border_width(mouth_, 0, 0);
     lv_obj_set_style_radius(mouth_, 4, 0);
 

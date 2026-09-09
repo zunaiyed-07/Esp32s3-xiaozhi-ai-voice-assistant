@@ -91,7 +91,7 @@ private:
             display_ = new NoDisplay();
             return;
         }
-        ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_, false));
+        ESP_ERROR_CHECK(esp_lcd_panel_invert_color(panel_, true));
 
         // Set the display to on
         ESP_LOGI(TAG, "Turning display on");
