@@ -140,6 +140,10 @@ private:
     bool aborted_ = false;
     bool assets_version_checked_ = false;
     bool play_popup_on_listening_ = false;  // Flag to play popup sound after state changes to listening
+    bool weather_available_ = false;
+    double weather_temperature_ = 0.0;
+    std::string weather_condition_;
+    std::string weather_location_;
     int clock_ticks_ = 0;
     TaskHandle_t activation_task_handle_ = nullptr;
 
@@ -164,6 +168,8 @@ private:
     void CheckNewVersion();
     void InitializeProtocol();
     void ShowActivationCode(const std::string& code, const std::string& message);
+    void UpdateWeatherFromJson(const cJSON* root);
+    void ShowWeather(Display* display);
     void SetListeningMode(ListeningMode mode);
     void HandleDisplayCommand(const std::string& text, Display* display);
     

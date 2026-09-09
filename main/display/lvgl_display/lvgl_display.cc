@@ -57,7 +57,10 @@ void LvglDisplay::ShowClock() {
     time_t now = time(nullptr);
     struct tm local_time;
     localtime_r(&now, &local_time);
-    if (local_time.tm_year < 2025 - 1900) return;
+    if (local_time.tm_year < 2025 - 1900) {
+        SetStatus("Time unavailable");
+        return;
+    }
 
     char time_str[24];
     const char* formats[] = {"%I:%M %p", "%I.%M %p", "%I:%M:%S %p", "[%I:%M %p]"};

@@ -24,8 +24,27 @@
 #define TAG "Application"
 
 namespace {
+std::string NormalizeCommand(const std::string& text) {
+    std::string normalized;
+    normalized.reserve(text.size());
+    bool previous_was_space = true;
+    for (unsigned char character : text) {
+        if (std::isalnum(character)) {
+            normalized.push_back(static_cast<char>(std::tolower(character)));
+            previous_was_space = false;
+        } else if (!previous_was_space) {
+            normalized.push_back(' ');
+            previous_was_space = true;
+        }
+    }
+    if (!normalized.empty() && normalized.back() == ' ') normalized.pop_back();
+    return normalized;
+}
+
 bool ContainsPhrase(const std::string& text, const char* phrase) {
-    return text.find(phrase) != std::string::npos;
+    const std::string normalized_text = " " + NormalizeCommand(text) + " ";
+    const std::string normalized_phrase = " " + NormalizeCommand(phrase) + " ";
+    return normalized_text.find(normalized_phrase) != std::string::npos;
 }
 }
 
@@ -529,10 +548,23 @@ void Application::InitializeProtocol() {
     });
 
     protocol_->OnIncomingJson([this, display](const cJSON* root) {
+        if (root == nullptr || !cJSON_IsObject(root)) {
+            ESP_LOGW(TAG, "Ignoring malformed incoming JSON");
+            return;
+        }
         // Parse JSON data
         auto type = cJSON_GetObjectItem(root, "type");
+        if (!cJSON_IsString(type)) {
+            ESP_LOGW(TAG, "Incoming JSON has no valid type");
+            return;
+        }
+        UpdateWeatherFromJson(root);
         if (strcmp(type->valuestring, "tts") == 0) {
             auto state = cJSON_GetObjectItem(root, "state");
+            if (!cJSON_IsString(state)) {
+                ESP_LOGW(TAG, "TTS message has no valid state");
+                return;
+            }
             if (strcmp(state->valuestring, "start") == 0) {
                 Schedule([this]() {
                     aborted_ = false;
@@ -926,10 +958,21 @@ void Application::SetListeningMode(ListeningMode mode) {
 void Application::HandleDisplayCommand(const std::string& text, Display* display) {
     if (display == nullptr) return;
 
+    if (ContainsPhrase(text, "show weather") || ContainsPhrase(text, "weather report") ||
+        ContainsPhrase(text, "weather now") || ContainsPhrase(text, "current weather") ||
+        ContainsPhrase(text, "display weather") || ContainsPhrase(text, "weather status")) {
+        display->SetFaceAnimationMode(false);
+        ShowWeather(display);
+        return;
+    }
+
     if (ContainsPhrase(text, "exit face animation") || ContainsPhrase(text, "exit face only mode") ||
         ContainsPhrase(text, "hide face") || ContainsPhrase(text, "disable face animation") ||
         ContainsPhrase(text, "turn off face mode") || ContainsPhrase(text, "show normal screen") ||
-        ContainsPhrase(text, "switch to normal mode") || ContainsPhrase(text, "normal mode")) {
+        ContainsPhrase(text, "switch to normal mode") || ContainsPhrase(text, "normal mode") ||
+        ContainsPhrase(text, "default mode") || ContainsPhrase(text, "switch to default mode") ||
+        ContainsPhrase(text, "standard mode") || ContainsPhrase(text, "regular mode") ||
+        ContainsPhrase(text, "show default screen") || ContainsPhrase(text, "show normal mode")) {
         display->SetFaceAnimationMode(false);
         return;
     }
@@ -937,6 +980,8 @@ void Application::HandleDisplayCommand(const std::string& text, Display* display
     if (ContainsPhrase(text, "show face mode") || ContainsPhrase(text, "show face animation") || ContainsPhrase(text, "show only face animation") ||
         ContainsPhrase(text, "face animation only") || ContainsPhrase(text, "show face only") ||
         ContainsPhrase(text, "face only mode") || ContainsPhrase(text, "switch to face only mode") ||
+        ContainsPhrase(text, "only face mode") || ContainsPhrase(text, "display face") ||
+        ContainsPhrase(text, "display expressions") || ContainsPhrase(text, "show expressions") ||
         ContainsPhrase(text, "face animation") ||
         ContainsPhrase(text, "show me your face")) {
         display->SetFaceAnimationMode(true);
@@ -958,18 +1003,74 @@ void Application::HandleDisplayCommand(const std::string& text, Display* display
         return;
     }
 
-    if (ContainsPhrase(text, "reset expression") || ContainsPhrase(text, "reset face")) display->SetEmotion("normal");
-    else if (ContainsPhrase(text, "be happy") || ContainsPhrase(text, "show happy face")) display->SetEmotion("happy");
-    else if (ContainsPhrase(text, "be angry") || ContainsPhrase(text, "show angry face")) display->SetEmotion("angry");
-    else if (ContainsPhrase(text, "cry") || ContainsPhrase(text, "show crying face")) display->SetEmotion("crying");
-    else if (ContainsPhrase(text, "be silly")) display->SetEmotion("silly");
-    else if (ContainsPhrase(text, "surprise me")) display->SetEmotion("surprised");
-    else if (ContainsPhrase(text, "sleep")) display->SetEmotion("sleepy");
-    else if (ContainsPhrase(text, "show love")) display->SetEmotion("love");
-    else if (ContainsPhrase(text, "what are you thinking")) display->SetEmotion("thinking");
-    else if (ContainsPhrase(text, "be confused")) display->SetEmotion("confused");
-    else if (ContainsPhrase(text, "be sad")) display->SetEmotion("sad");
-    else if (ContainsPhrase(text, "be laughing") || ContainsPhrase(text, "laugh")) display->SetEmotion("laughing");
+    if (ContainsPhrase(text, "reset expression") || ContainsPhrase(text, "reset face") ||
+        ContainsPhrase(text, "neutral face") || ContainsPhrase(text, "normal face")) display->SetEmotion("normal");
+    else if (ContainsPhrase(text, "be happy") || ContainsPhrase(text, "show happy face") || ContainsPhrase(text, "smile") || ContainsPhrase(text, "display happy expression")) display->SetEmotion("happy");
+    else if (ContainsPhrase(text, "be angry") || ContainsPhrase(text, "show angry face") || ContainsPhrase(text, "angry face") || ContainsPhrase(text, "display angry expression")) display->SetEmotion("angry");
+    else if (ContainsPhrase(text, "cry") || ContainsPhrase(text, "show crying face") || ContainsPhrase(text, "crying face")) display->SetEmotion("crying");
+    else if (ContainsPhrase(text, "be silly") || ContainsPhrase(text, "funny face")) display->SetEmotion("silly");
+    else if (ContainsPhrase(text, "surprise me") || ContainsPhrase(text, "surprised face") || ContainsPhrase(text, "display surprised expression")) display->SetEmotion("surprised");
+    else if (ContainsPhrase(text, "sleep") || ContainsPhrase(text, "sleepy face") || ContainsPhrase(text, "display sleepy expression")) display->SetEmotion("sleepy");
+    else if (ContainsPhrase(text, "show love") || ContainsPhrase(text, "love face") || ContainsPhrase(text, "display love expression")) display->SetEmotion("love");
+    else if (ContainsPhrase(text, "what are you thinking") || ContainsPhrase(text, "thinking face") || ContainsPhrase(text, "display thinking expression")) display->SetEmotion("thinking");
+    else if (ContainsPhrase(text, "be confused") || ContainsPhrase(text, "confused face") || ContainsPhrase(text, "display confused expression")) display->SetEmotion("confused");
+    else if (ContainsPhrase(text, "be sad") || ContainsPhrase(text, "sad face") || ContainsPhrase(text, "display sad expression")) display->SetEmotion("sad");
+    else if (ContainsPhrase(text, "be laughing") || ContainsPhrase(text, "laugh") || ContainsPhrase(text, "display laughing expression")) display->SetEmotion("laughing");
+}
+
+void Application::UpdateWeatherFromJson(const cJSON* root) {
+    const cJSON* type = cJSON_GetObjectItem(root, "type");
+    const cJSON* source = cJSON_GetObjectItem(root, "weather");
+    if (!cJSON_IsObject(source)) source = cJSON_GetObjectItem(root, "payload");
+    if (!cJSON_IsObject(source) && (!cJSON_IsString(type) || strcmp(type->valuestring, "weather") != 0)) return;
+    if (!cJSON_IsObject(source)) source = root;
+    const cJSON* current = cJSON_GetObjectItem(source, "current");
+    if (cJSON_IsObject(current)) source = current;
+
+    const cJSON* temperature = cJSON_GetObjectItem(source, "temperature");
+    if (!cJSON_IsNumber(temperature)) temperature = cJSON_GetObjectItem(source, "temperature_c");
+    if (!cJSON_IsNumber(temperature)) temperature = cJSON_GetObjectItem(source, "temp");
+    const cJSON* condition = cJSON_GetObjectItem(source, "condition");
+    if (!cJSON_IsString(condition)) condition = cJSON_GetObjectItem(source, "status");
+    if (!cJSON_IsString(condition)) condition = cJSON_GetObjectItem(source, "description");
+    if (!cJSON_IsNumber(temperature) || !cJSON_IsString(condition)) return;
+
+    const cJSON* location = cJSON_GetObjectItem(source, "city");
+    if (!cJSON_IsString(location)) location = cJSON_GetObjectItem(root, "city");
+    std::lock_guard<std::mutex> lock(mutex_);
+    weather_temperature_ = temperature->valuedouble;
+    weather_condition_ = condition->valuestring;
+    weather_location_ = cJSON_IsString(location) ? location->valuestring : "";
+    weather_available_ = true;
+}
+
+void Application::ShowWeather(Display* display) {
+    double temperature = 0.0;
+    std::string condition;
+    std::string location;
+    bool weather_available = false;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        weather_available = weather_available_;
+        if (weather_available) {
+            temperature = weather_temperature_;
+            condition = weather_condition_;
+            location = weather_location_;
+        }
+    }
+    if (!weather_available) {
+        display->SetStatus("Waiting for weather...");
+        return;
+    }
+    if (location.empty()) {
+        char message[96];
+        snprintf(message, sizeof(message), "%.1f C, %s", temperature, condition.c_str());
+        display->ShowNotification(message, 15000);
+        return;
+    }
+    char message[128];
+    snprintf(message, sizeof(message), "%s: %.1f C, %s", location.c_str(), temperature, condition.c_str());
+    display->ShowNotification(message, 15000);
 }
 
 void Application::Reboot() {

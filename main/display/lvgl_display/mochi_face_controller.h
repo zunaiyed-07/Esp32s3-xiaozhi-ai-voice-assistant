@@ -18,6 +18,7 @@ public:
 
     void SetExpression(Expression expression, uint32_t transition_ms = 240);
     void SetExpression(const char* expression, uint32_t transition_ms = 240);
+    void SetSpeaking(bool speaking) { speaking_ = speaking; }
     void SetSpeakingMouthAnimation(bool enabled) { speaking_mouth_animation_ = enabled; }
     void SetAnimationSpeed(int speed_percent);
     void Refresh();
@@ -66,9 +67,14 @@ private:
     uint32_t blink_due_ms_ = 0;
     uint32_t blink_elapsed_ms_ = 0;
     uint32_t speech_elapsed_ms_ = 0;
+    uint32_t speech_change_elapsed_ms_ = 0;
+    uint32_t speech_change_period_ms_ = 120;
     uint32_t eye_motion_elapsed_ms_ = 0;
+    lv_coord_t speech_mouth_current_height_ = 6;
+    lv_coord_t speech_mouth_target_height_ = 6;
     bool blinking_ = false;
     bool fullscreen_ = false;
+    bool speaking_ = false;
         bool speaking_mouth_animation_ = true;
         int animation_speed_percent_ = 100;
     uint32_t random_state_ = 0x6d6f6368;

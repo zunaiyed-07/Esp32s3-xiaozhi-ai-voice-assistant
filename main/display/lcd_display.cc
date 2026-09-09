@@ -1116,20 +1116,10 @@ void LcdDisplay::SetEmotion(const char* emotion) {
 }
 
 void LcdDisplay::SetFaceState(FaceState state) {
-    if (mochi_face_controller_ == nullptr || !face_animation_mode_ || !face_auto_expression_) return;
+    if (mochi_face_controller_ == nullptr || !face_animation_mode_) return;
     DisplayLockGuard lock(this);
-    switch (state) {
-        case FaceState::Listening:
-            mochi_face_controller_->SetExpression(MochiFaceController::Expression::LISTENING);
-            break;
-        case FaceState::Speaking:
-            mochi_face_controller_->SetExpression(MochiFaceController::Expression::SPEAKING);
-            break;
-        case FaceState::Idle:
-        default:
-            mochi_face_controller_->SetExpression(default_face_expression_.c_str());
-            break;
-    }
+    mochi_face_controller_->SetSpeaking(state == FaceState::Speaking);
+    mochi_face_controller_->Refresh();
 }
 
 void LcdDisplay::SetFaceAnimationMode(bool enabled) {

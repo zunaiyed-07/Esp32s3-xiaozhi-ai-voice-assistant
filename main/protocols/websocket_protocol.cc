@@ -148,6 +148,11 @@ bool WebsocketProtocol::OpenAudioChannel() {
         } else {
             // Parse JSON data
             auto root = cJSON_Parse(data);
+            if (root == nullptr) {
+                ESP_LOGE(TAG, "Failed to parse JSON message: %s", data);
+                last_incoming_time_ = std::chrono::steady_clock::now();
+                return;
+            }
             auto type = cJSON_GetObjectItem(root, "type");
             if (cJSON_IsString(type)) {
                 if (strcmp(type->valuestring, "hello") == 0) {
