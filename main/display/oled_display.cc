@@ -194,21 +194,23 @@ void OledDisplay::SetChatMessage(const char* role, const char* content) {
     }
 
     DisplayLockGuard lock(this);
-    if (content == nullptr || content[0] == '\0') {
-        if (chat_message_label_ != nullptr) lv_label_set_text(chat_message_label_, "");
-        if (status_label_ != nullptr) lv_label_set_text(status_label_, "");
+    if (content == nullptr) return;
+    if (strcmp(role, "assistant") != 0) {
+        if (strcmp(role, "user") == 0) chat_message_text_.clear();
         return;
     }
-    if (strcmp(role, "assistant") != 0) return;
-    std::string content_text(content);
-    std::replace(content_text.begin(), content_text.end(), '\n', ' ');
+
+    std::string banglish = ToBanglish(content);
+    if (banglish.empty()) return;
+    if (!chat_message_text_.empty()) chat_message_text_ += " ";
+    chat_message_text_ += banglish;
     if (chat_message_label_ != nullptr) {
-        lv_label_set_text(chat_message_label_, content_text.c_str());
+        lv_label_set_text(chat_message_label_, chat_message_text_.c_str());
         lv_obj_remove_flag(chat_message_label_, LV_OBJ_FLAG_HIDDEN);
         return;
     }
     if (status_label_ == nullptr) return;
-    lv_label_set_text(status_label_, content_text.c_str());
+    lv_label_set_text(status_label_, chat_message_text_.c_str());
     lv_obj_remove_flag(status_label_, LV_OBJ_FLAG_HIDDEN);
     if (notification_label_ != nullptr) lv_obj_add_flag(notification_label_, LV_OBJ_FLAG_HIDDEN);
 }

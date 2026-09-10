@@ -534,6 +534,8 @@ void LcdDisplay::SetupUI() {
 #endif
 void LcdDisplay::SetChatMessage(const char* role, const char* content) {
     DisplayLockGuard lock(this);
+    std::string banglish = ToBanglish(content);
+    content = banglish.c_str();
     if (content_ == nullptr) {
         return;
     }
@@ -1024,6 +1026,8 @@ void LcdDisplay::SetPreviewImage(std::unique_ptr<LvglImage> image) {
 
 void LcdDisplay::SetChatMessage(const char* role, const char* content) {
     DisplayLockGuard lock(this);
+    std::string banglish = ToBanglish(content);
+    content = banglish.c_str();
     if (chat_message_label_ == nullptr) {
         return;
     }

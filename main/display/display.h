@@ -15,6 +15,8 @@
 #include <chrono>
 #include <string>
 
+std::string ToBanglish(const char* text);
+
 enum class FaceState { Idle, Listening, Speaking };
 
 class Theme {
